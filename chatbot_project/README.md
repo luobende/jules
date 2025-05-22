@@ -2,17 +2,19 @@
 
 ## Overview
 
-This project provides a simple yet configurable command-line chatbot that interacts with OpenAI-compatible chat completion APIs. It's designed to be easy to set up and use, allowing users to connect to various API providers by configuring the `base_url` and `api_key`. The chatbot supports conversation history, allowing for more contextual interactions.
+This project provides a simple yet configurable chatbot that interacts with OpenAI-compatible chat completion APIs. It offers both a command-line interface (CLI) and an interactive web UI built with Streamlit. It's designed to be easy to set up and use, allowing users to connect to various API providers by configuring the `base_url` and `api_key`. The chatbot supports conversation history, allowing for more contextual interactions in both interfaces.
 
 ## Features
 
 *   **OpenAI API Compatibility**: Works with any chat completion API endpoint that follows the OpenAI specification (e.g., OpenAI's official API, locally hosted models with compatible interfaces).
+*   **Dual Interfaces**:
+    *   Interactive web UI using Streamlit.
+    *   Command-line Interface (CLI).
 *   **Flexible Configuration**: API key and base URL can be configured via:
     *   Environment variables (recommended for security).
     *   A `config.ini` file.
-*   **Conversation History**: Remembers the context of the current conversation.
+*   **Conversation History**: Remembers the context of the current conversation (session-based for Streamlit UI).
 *   **Basic Error Handling**: Provides feedback for common issues like missing configuration or API errors.
-*   **Command-line Interface**: Simple interactive CLI for sending and receiving messages.
 
 ## Project Structure
 
@@ -25,21 +27,24 @@ chatbot_project/
 ├── src/
 │   ├── __init__.py
 │   ├── chatbot.py              # Core Chatbot class for API interaction
-│   └── main.py                 # Main script to run the chatbot CLI
+│   ├── main.py                 # Main script to run the chatbot CLI
+│   └── streamlit_app.py        # Script to run the Streamlit web UI
 ├── tests/
 │   ├── __init__.py
-│   └── test_chatbot.py         # Unit tests (currently basic)
-└── README.md                   # This file
+│   └── test_chatbot.py         # Unit tests
+├── README.md                   # This file
+└── requirements.txt            # Python package dependencies
 ```
 
-*   `src/`: Contains the core Python source code for the chatbot.
+*   `src/`: Contains the core Python source code for the chatbot and UI.
 *   `config/`: Handles configuration loading and provides a template for settings.
-*   `tests/`: Contains unit tests for the project (currently placeholders, to be expanded).
+*   `tests/`: Contains unit tests for the project.
+*   `requirements.txt`: Lists project dependencies.
 
 ## Prerequisites
 
 *   Python 3.x (developed with Python 3.10+)
-*   The `requests` library
+*   Dependencies listed in `requirements.txt` (primarily `requests` and `streamlit`).
 
 ## Setup and Installation
 
@@ -51,21 +56,21 @@ chatbot_project/
     ```
     If you have the files directly, navigate to the `chatbot_project` directory.
 
-2.  **Install Dependencies**:
-    Install the `requests` library using pip:
-    ```bash
-    pip install requests
-    ```
-    Or, if you use a virtual environment (recommended):
+2.  **Create a Virtual Environment (Recommended)**:
     ```bash
     python -m venv venv
     source venv/bin/activate  # On Windows: venv\Scripts\activate
-    pip install requests
+    ```
+
+3.  **Install Dependencies**:
+    Install all required packages using `requirements.txt`:
+    ```bash
+    pip install -r requirements.txt
     ```
 
 ## Configuration
 
-You need to provide an API key and the base URL for the chat API service you intend to use. There are two ways to configure these:
+You need to provide an API key and the base URL for the chat API service you intend to use. This configuration is shared by both the CLI and Streamlit UI. There are two ways to configure these:
 
 ### 1. Environment Variables (Recommended)
 
@@ -120,65 +125,72 @@ If environment variables are not set, the application will look for a `config.in
 
 Ensure you have completed the Setup and Configuration steps.
 
-To start the chatbot, run the `main.py` script from the **root directory** of the project (`chatbot_project/`):
+### How to Run (Streamlit UI Version)
 
-```bash
-python src/main.py
-```
+To run the interactive web UI:
 
-You will see a prompt:
+1.  Make sure you are in the project root directory (`chatbot_project/`).
+2.  Execute the following command in your terminal:
+    ```bash
+    streamlit run src/streamlit_app.py
+    ```
+3.  This will typically open the chatbot application in a new tab in your default web browser. If it doesn't open automatically, your terminal will display a local URL (e.g., `http://localhost:8501`) that you can navigate to.
+4.  Interact with the chatbot through the web interface. Chat history is maintained for the current session.
 
-```
-Starting chatbot application...
-INFO: Checking environment variables for API credentials...
-INFO: Not all credentials found in environment variables. Trying to load from '../config/config.ini'...
-INFO: API key loaded from '../config/config.ini'.
-INFO: Base URL loaded from '../config/config.ini'.
-Configuration loaded successfully.
-Chatbot initialized with model: gpt-3.5-turbo
-Type 'exit' to quit the chat.
-You:
-```
+### How to Run (CLI Version)
 
-Simply type your message and press Enter. The chatbot's response will be displayed. To end the session, type `exit` and press Enter.
+To start the command-line chatbot:
 
-## Basic Usage Example
+1.  Make sure you are in the project root directory (`chatbot_project/`).
+2.  Run the `main.py` script:
+    ```bash
+    python src/main.py
+    ```
+3.  You will see a prompt in your terminal:
+    ```
+    Starting chatbot application...
+    You:
+    ```
+    (Configuration loading messages will also appear here)
+4.  Simply type your message and press Enter. The chatbot's response will be displayed. To end the session, type `exit` and press Enter.
+
+## Basic Usage Example (CLI)
 
 ```
 You: Hello, what is the capital of France?
 Chatbot: The capital of France is Paris.
 You: What is a fun fact about it?
-Chatbot: A fun fact about Paris is that it's home to the world's largest art museum, the Louvre, which houses masterpieces like the Mona Lisa and the Venus de Milo. It would take about 200 days to see every piece of art in the Louvre if you spent just 30 seconds on each one!
+Chatbot: A fun fact about Paris is that it's home to the world's largest art museum, the Louvre...
 You: exit
 Exiting chatbot. Goodbye!
 ```
+The Streamlit UI provides a similar conversational experience within your browser.
 
 ## Error Handling/Troubleshooting
 
-*   **Missing API Key or Base URL**:
-    *   If neither environment variables nor `config.ini` provide valid credentials, `main.py` will print a "CRITICAL" error message and exit. Ensure your configuration is correct.
+*   **Configuration Errors**:
+    *   If credentials are not found, both the CLI and Streamlit app will indicate this. The Streamlit app will show an error message on the UI, while the CLI will print "CRITICAL" errors and exit. Ensure your configuration via environment variables or `config/config.ini` is correct.
 *   **Incorrect API Key (Authentication Errors)**:
-    *   The API might return a `401 Unauthorized` error. This will be printed by the chatbot (e.g., "Error: API request failed with status code 401..."). Verify your API key.
+    *   The API might return a `401 Unauthorized` error. The CLI will print this (e.g., "Error: API request failed with status code 401..."). The Streamlit UI will show a generic "Sorry, I couldn't get a response" message, but details might be in the console where you ran `streamlit run`. Verify your API key.
 *   **Incorrect Base URL or Network Issues**:
     *   You might see `ConnectionRefusedError`, `NameResolutionError`, or API errors like `404 Not Found`. Double-check the `base_url` and your internet connectivity.
 *   **API Quota Exceeded**:
-    *   The API might return a `429 Too Many Requests` error. Check your API usage limits with your provider.
+    *   The API might return a `429 Too Many Requests` error. Check your API usage limits.
 *   **`ModuleNotFoundError`**:
-    *   If you try to run `python main.py` directly from the `src/` directory, you might encounter import errors. Always run from the project root (`chatbot_project/`) using `python src/main.py`. The `main.py` script attempts to adjust `sys.path` to mitigate this, but running from the root is the standard practice.
-*   **`requests` library not found**:
-    *   Ensure you have installed it via `pip install requests`.
+    *   If running from an incorrect directory, you might get import errors. Always run commands (`python src/main.py` or `streamlit run src/streamlit_app.py`) from the project root directory (`chatbot_project/`).
+*   **Dependencies Not Installed**:
+    *   Ensure you have run `pip install -r requirements.txt`.
 
 ## Future Enhancements (Optional)
 
 This is a basic implementation. Potential future enhancements include:
 
-*   **Configurable Model**: Allow users to specify the chat model (e.g., "gpt-4", "gpt-3.5-turbo-16k") via configuration.
-*   **System Message Configuration**: Allow setting a "system" message to better guide the chatbot's behavior or personality.
-*   **Advanced API Parameters**: Support for parameters like `temperature`, `max_tokens`, `top_p`, etc.
-*   **Streaming Responses**: Implement support for streaming API responses for a more interactive feel with long replies.
-*   **GUI Interface**: Develop a graphical user interface instead of a command-line one.
+*   **Configurable Model**: Allow users to specify the chat model (e.g., "gpt-4") via configuration, usable by both UIs.
+*   **System Message Configuration**: Allow setting a "system" message to guide behavior, accessible in both UIs.
+*   **Advanced API Parameters**: Support for `temperature`, `max_tokens`, etc.
+*   **Streaming Responses**: Implement for both CLI and Streamlit for better interactivity.
 *   **More Robust Testing**: Expand unit and integration tests.
-*   **Logging**: Implement more structured logging instead of just print statements.
+*   **Logging**: Implement more structured logging.
 
 ---
 
