@@ -1,0 +1,8 @@
+# Rename this file to config.ini and fill in your actual credentials.
+# Do NOT commit your actual credentials to version control.
+
+[Credentials]
+api_key = YOUR_API_KEY_HERE
+base_url = YOUR_BASE_URL_HERE
+# Example for OpenAI:
+# base_url = https://api.openai.com/v1
