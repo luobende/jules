@@ -10,16 +10,19 @@ This project provides a simple yet configurable chatbot that interacts with Open
 *   **Dual Interfaces**:
     *   **Interactive Web UI (Streamlit)**:
         *   Real-time chat interface.
-        *   **Model Selection**: Choose from a list of available language models (configurable, with defaults).
+        *   **Dynamic Model Selection**: The list of available language models is primarily fetched from the API provider's `/models` endpoint.
+            *   **Fallback Mechanism**: If the API call fails or returns no models, the UI falls back to a manually configured list (via `OPENAI_MODELS` environment variable or `models` key in `config.ini`). If neither is set, a hardcoded list of common models is used.
+            *   The application displays all models returned by the API; it does not currently filter this list.
         *   **Chat History Management**: Clear the entire conversation history within the session.
         *   **Conversation Export**: Download the current chat history as a TXT or JSON file.
         *   Session-based conversation history.
     *   **Command-line Interface (CLI)**:
         *   Simple interactive CLI for sending and receiving messages.
-        *   Conversation history maintained for the current session.
-*   **Flexible Configuration**: API key, base URL, and available models (for UI) can be configured via:
+        *   Conversation history maintained for the current session. (Note: The CLI does not currently use the dynamic model fetching or selection features available in the Streamlit UI).
+*   **Flexible Configuration**: API key and base URL can be configured via:
     *   Environment variables (recommended for security).
     *   A `config.ini` file.
+*   **Model List Configuration (for Streamlit UI)**: The list of models for the UI dropdown can be influenced by API fetching, environment variables, or an INI file setting (see Configuration section).
 *   **Basic Error Handling**: Provides feedback for common issues like missing configuration or API errors.
 
 ## Project Structure
@@ -32,7 +35,7 @@ chatbot_project/
 │   └── (config.ini)            # Optional user-created config file (ignored by git)
 ├── src/
 │   ├── __init__.py
-│   ├── chatbot.py              # Core Chatbot class for API interaction
+│   ├── chatbot.py              # Core Chatbot class for API interaction (includes get_available_models)
 │   ├── main.py                 # Main script to run the chatbot CLI
 │   └── streamlit_app.py        # Script to run the Streamlit web UI
 ├── tests/
@@ -76,7 +79,7 @@ chatbot_project/
 
 ## Configuration
 
-You need to provide an API key and the base URL for the chat API service you intend to use. This configuration is shared by both the CLI and Streamlit UI.
+You need to provide an API key and the base URL for the chat API service. This configuration is shared by both the CLI and Streamlit UI.
 
 ### 1. Environment Variables (Recommended)
 
@@ -84,16 +87,16 @@ This is the most secure method. Set the following environment variables:
 
 *   `OPENAI_API_KEY`: Your API key.
 *   `OPENAI_BASE_URL`: The base URL for the API (e.g., `https://api.openai.com/v1`).
-*   `OPENAI_MODELS` (Optional): A comma-separated list of model names to populate the model selection dropdown in the Streamlit UI (e.g., `gpt-3.5-turbo,gpt-4,gpt-4-turbo`).
+*   `OPENAI_MODELS` (Optional, for Streamlit UI): A comma-separated list of model names. This list serves as a **fallback** if the API call to fetch models fails or returns an empty list. It can also be used if you prefer to use a specific predefined list instead of dynamic fetching (though current priority is API first).
 
 Example (Linux/macOS):
 ```bash
 export OPENAI_API_KEY="your_actual_api_key_here"
 export OPENAI_BASE_URL="https://api.openai.com/v1"
-export OPENAI_MODELS="gpt-3.5-turbo,gpt-4"
+export OPENAI_MODELS="gpt-3.5-turbo,gpt-4" # Fallback list
 ```
 
-The application prioritizes environment variables.
+The application prioritizes environment variables for these core settings.
 
 ### 2. `config.ini` File
 
@@ -112,12 +115,18 @@ If environment variables are not set, or for specific settings, the application 
     api_key = YOUR_API_KEY_HERE
     base_url = YOUR_BASE_URL_HERE
     # Optional: Comma-separated list of models for the Streamlit UI.
-    # If commented out or empty, and OPENAI_MODELS env var is not set,
-    # a default list (e.g., gpt-3.5-turbo, gpt-4) will be used.
+    # This list serves as a FALLBACK if the API call to fetch models fails or
+    # returns an empty list, and the OPENAI_MODELS environment variable is not set.
+    # If neither API fetch, nor OPENAI_MODELS env var, nor this 'models' key
+    # provide a list, a hardcoded default list of common models will be used.
     # models = gpt-3.5-turbo,gpt-4,gpt-4-turbo,another-model
     ```
     *   Replace placeholders for `api_key` and `base_url`.
-    *   You can specify a comma-separated list for `models` to customize the dropdown in the Streamlit UI. If this key is absent or empty, and the `OPENAI_MODELS` environment variable is not set, a default list of common models will be used in the UI.
+    *   The `models` key provides a comma-separated list for the Streamlit UI model selection. Its role is primarily a fallback:
+        1.  The UI first attempts to fetch models directly from the API (`{base_url}/models`).
+        2.  If API fetching fails or returns no models, it checks the `OPENAI_MODELS` environment variable.
+        3.  If that's not set, it checks the `models` key in this `config.ini` file.
+        4.  If all above sources fail or are empty, a hardcoded default list of common models is used.
 
 **Important Security Note**: Avoid committing `config.ini` with real API keys to version control.
 
@@ -134,11 +143,11 @@ To run the interactive web UI:
     ```bash
     streamlit run src/streamlit_app.py
     ```
-3.  This will typically open the chatbot application in a new tab in your default web browser. If it doesn't open automatically, your terminal will display a local URL (e.g., `http://localhost:8501`) that you can navigate to.
+3.  This will typically open the chatbot application in a new tab in your default web browser. The terminal will also display a local URL (e.g., `http://localhost:8501`).
 4.  **Using the Streamlit UI**:
     *   The main area displays the chat conversation.
     *   Use the **sidebar** for additional functionalities:
-        *   **Choose a Model**: Select your desired language model from the dropdown. This applies to new messages.
+        *   **Choose a Model**: Select your desired language model from the dropdown. The list of models is dynamically populated (API > Manual Config > Default). The source of the model list is indicated in the sidebar.
         *   **Clear Chat History**: Click this button to remove all messages from the current session's display.
         *   **Export Conversation**: Download the current chat as a `.txt` or `.json` file.
     *   Chat history is maintained for the current browser session.
@@ -168,8 +177,8 @@ The Streamlit UI provides a similar conversational experience within your browse
 
 ## Error Handling/Troubleshooting
 
-*   **Configuration Errors**: If credentials or models are not found/configured correctly, the applications will indicate this.
-*   **API Errors**: Incorrect API keys, base URLs, or network issues can lead to errors, which are generally reported in the UI or console.
+*   **Configuration Errors**: If credentials are not found/configured correctly, the applications will indicate this.
+*   **API Errors**: Incorrect API keys, base URLs, or network issues can lead to errors, which are generally reported in the UI or console. This can also affect dynamic model fetching.
 *   **Dependencies**: Ensure all packages in `requirements.txt` are installed.
 
 ## Future Enhancements (Optional)
