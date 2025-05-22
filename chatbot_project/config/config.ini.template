@@ -10,3 +10,23 @@ base_url = YOUR_BASE_URL_HERE
 # Optional: Comma-separated list of models to make available in the UI.
 # If commented out or empty, a default list may be used in the application.
 # models = gpt-3.5-turbo,gpt-4,gpt-4-turbo,another-model
+
+[ContextManagement]
+# Percentage of model's max context length to trigger summarization (e.g., 0.75 for 75%)
+# context_threshold_percentage = 0.75
+#
+# Percentage of model's max context to send to the API after processing (e.g., 0.85 for 85%)
+# max_context_send_percentage = 0.85
+#
+# Default prompt template for summarization. Use {text} as placeholder for the text to summarize.
+# default_summary_prompt = "Summarize the following conversation, focusing on key facts, decisions, and the main timeline of events. Condense it as much as possible while retaining critical information for future context: {text}"
+#
+# Default model to use for summarization tasks.
+# default_model_for_summarization = gpt-3.5-turbo
+#
+# Number of recent messages to keep alongside the summary when passing context to the main chat model.
+# max_recent_messages_after_summary = 5
+#
+# (Optional) Assumed maximum context tokens for the primary chat model if not dynamically known.
+# (Used with percentages if model's actual max_tokens isn't available at runtime to Chatbot class)
+# assumed_chat_model_max_tokens = 4096
