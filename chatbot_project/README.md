@@ -8,12 +8,18 @@ This project provides a simple yet configurable chatbot that interacts with Open
 
 *   **OpenAI API Compatibility**: Works with any chat completion API endpoint that follows the OpenAI specification (e.g., OpenAI's official API, locally hosted models with compatible interfaces).
 *   **Dual Interfaces**:
-    *   Interactive web UI using Streamlit.
-    *   Command-line Interface (CLI).
-*   **Flexible Configuration**: API key and base URL can be configured via:
+    *   **Interactive Web UI (Streamlit)**:
+        *   Real-time chat interface.
+        *   **Model Selection**: Choose from a list of available language models (configurable, with defaults).
+        *   **Chat History Management**: Clear the entire conversation history within the session.
+        *   **Conversation Export**: Download the current chat history as a TXT or JSON file.
+        *   Session-based conversation history.
+    *   **Command-line Interface (CLI)**:
+        *   Simple interactive CLI for sending and receiving messages.
+        *   Conversation history maintained for the current session.
+*   **Flexible Configuration**: API key, base URL, and available models (for UI) can be configured via:
     *   Environment variables (recommended for security).
     *   A `config.ini` file.
-*   **Conversation History**: Remembers the context of the current conversation (session-based for Streamlit UI).
 *   **Basic Error Handling**: Provides feedback for common issues like missing configuration or API errors.
 
 ## Project Structure
@@ -70,56 +76,50 @@ chatbot_project/
 
 ## Configuration
 
-You need to provide an API key and the base URL for the chat API service you intend to use. This configuration is shared by both the CLI and Streamlit UI. There are two ways to configure these:
+You need to provide an API key and the base URL for the chat API service you intend to use. This configuration is shared by both the CLI and Streamlit UI.
 
 ### 1. Environment Variables (Recommended)
 
-This is the most secure method, especially in production or shared environments, as it avoids hardcoding credentials in files.
-
-Set the following environment variables in your system or terminal session:
+This is the most secure method. Set the following environment variables:
 
 *   `OPENAI_API_KEY`: Your API key.
-*   `OPENAI_BASE_URL`: The base URL for the API. For standard OpenAI, this is `https://api.openai.com/v1`.
+*   `OPENAI_BASE_URL`: The base URL for the API (e.g., `https://api.openai.com/v1`).
+*   `OPENAI_MODELS` (Optional): A comma-separated list of model names to populate the model selection dropdown in the Streamlit UI (e.g., `gpt-3.5-turbo,gpt-4,gpt-4-turbo`).
 
 Example (Linux/macOS):
 ```bash
 export OPENAI_API_KEY="your_actual_api_key_here"
 export OPENAI_BASE_URL="https://api.openai.com/v1"
+export OPENAI_MODELS="gpt-3.5-turbo,gpt-4"
 ```
 
-Example (Windows PowerShell):
-```powershell
-$Env:OPENAI_API_KEY="your_actual_api_key_here"
-$Env:OPENAI_BASE_URL="https://api.openai.com/v1"
-```
-
-The application will prioritize these environment variables if they are set.
+The application prioritizes environment variables.
 
 ### 2. `config.ini` File
 
-If environment variables are not set, the application will look for a `config.ini` file.
+If environment variables are not set, or for specific settings, the application will look for a `config.ini` file.
 
 1.  **Create `config.ini`**:
-    Navigate to the `config/` directory. Copy the template file:
+    Copy `config/config.ini.template` to `config/config.ini`.
     ```bash
     cp config/config.ini.template config/config.ini
     ```
-    (On Windows, use `copy config\config.ini.template config\config.ini`)
 
 2.  **Edit `config.ini`**:
-    Open `config/config.ini` with a text editor and fill in your details:
+    Open `config/config.ini` and fill in your details:
     ```ini
     [Credentials]
     api_key = YOUR_API_KEY_HERE
     base_url = YOUR_BASE_URL_HERE
+    # Optional: Comma-separated list of models for the Streamlit UI.
+    # If commented out or empty, and OPENAI_MODELS env var is not set,
+    # a default list (e.g., gpt-3.5-turbo, gpt-4) will be used.
+    # models = gpt-3.5-turbo,gpt-4,gpt-4-turbo,another-model
     ```
-    Replace `YOUR_API_KEY_HERE` with your actual API key.
-    Replace `YOUR_BASE_URL_HERE` with the correct base URL for your service. For example, for OpenAI's official API, it would be:
-    ```ini
-    base_url = https://api.openai.com/v1
-    ```
+    *   Replace placeholders for `api_key` and `base_url`.
+    *   You can specify a comma-separated list for `models` to customize the dropdown in the Streamlit UI. If this key is absent or empty, and the `OPENAI_MODELS` environment variable is not set, a default list of common models will be used in the UI.
 
-**Important Security Note**: If you use the `config.ini` file, ensure it is **not** committed to version control (e.g., Git) if it contains real API keys. The provided `.gitignore` file (if this project is a git repo) should already include `config.ini` to prevent accidental commits.
+**Important Security Note**: Avoid committing `config.ini` with real API keys to version control.
 
 ## How to Run
 
@@ -135,7 +135,13 @@ To run the interactive web UI:
     streamlit run src/streamlit_app.py
     ```
 3.  This will typically open the chatbot application in a new tab in your default web browser. If it doesn't open automatically, your terminal will display a local URL (e.g., `http://localhost:8501`) that you can navigate to.
-4.  Interact with the chatbot through the web interface. Chat history is maintained for the current session.
+4.  **Using the Streamlit UI**:
+    *   The main area displays the chat conversation.
+    *   Use the **sidebar** for additional functionalities:
+        *   **Choose a Model**: Select your desired language model from the dropdown. This applies to new messages.
+        *   **Clear Chat History**: Click this button to remove all messages from the current session's display.
+        *   **Export Conversation**: Download the current chat as a `.txt` or `.json` file.
+    *   Chat history is maintained for the current browser session.
 
 ### How to Run (CLI Version)
 
@@ -146,13 +152,7 @@ To start the command-line chatbot:
     ```bash
     python src/main.py
     ```
-3.  You will see a prompt in your terminal:
-    ```
-    Starting chatbot application...
-    You:
-    ```
-    (Configuration loading messages will also appear here)
-4.  Simply type your message and press Enter. The chatbot's response will be displayed. To end the session, type `exit` and press Enter.
+3.  Interact with the chatbot in your terminal. Type `exit` to quit.
 
 ## Basic Usage Example (CLI)
 
@@ -164,31 +164,19 @@ Chatbot: A fun fact about Paris is that it's home to the world's largest art mus
 You: exit
 Exiting chatbot. Goodbye!
 ```
-The Streamlit UI provides a similar conversational experience within your browser.
+The Streamlit UI provides a similar conversational experience within your browser, with added graphical features.
 
 ## Error Handling/Troubleshooting
 
-*   **Configuration Errors**:
-    *   If credentials are not found, both the CLI and Streamlit app will indicate this. The Streamlit app will show an error message on the UI, while the CLI will print "CRITICAL" errors and exit. Ensure your configuration via environment variables or `config/config.ini` is correct.
-*   **Incorrect API Key (Authentication Errors)**:
-    *   The API might return a `401 Unauthorized` error. The CLI will print this (e.g., "Error: API request failed with status code 401..."). The Streamlit UI will show a generic "Sorry, I couldn't get a response" message, but details might be in the console where you ran `streamlit run`. Verify your API key.
-*   **Incorrect Base URL or Network Issues**:
-    *   You might see `ConnectionRefusedError`, `NameResolutionError`, or API errors like `404 Not Found`. Double-check the `base_url` and your internet connectivity.
-*   **API Quota Exceeded**:
-    *   The API might return a `429 Too Many Requests` error. Check your API usage limits.
-*   **`ModuleNotFoundError`**:
-    *   If running from an incorrect directory, you might get import errors. Always run commands (`python src/main.py` or `streamlit run src/streamlit_app.py`) from the project root directory (`chatbot_project/`).
-*   **Dependencies Not Installed**:
-    *   Ensure you have run `pip install -r requirements.txt`.
+*   **Configuration Errors**: If credentials or models are not found/configured correctly, the applications will indicate this.
+*   **API Errors**: Incorrect API keys, base URLs, or network issues can lead to errors, which are generally reported in the UI or console.
+*   **Dependencies**: Ensure all packages in `requirements.txt` are installed.
 
 ## Future Enhancements (Optional)
 
-This is a basic implementation. Potential future enhancements include:
-
-*   **Configurable Model**: Allow users to specify the chat model (e.g., "gpt-4") via configuration, usable by both UIs.
-*   **System Message Configuration**: Allow setting a "system" message to guide behavior, accessible in both UIs.
+*   **System Message Configuration**: Allow setting a "system" message.
 *   **Advanced API Parameters**: Support for `temperature`, `max_tokens`, etc.
-*   **Streaming Responses**: Implement for both CLI and Streamlit for better interactivity.
+*   **Streaming Responses**: For more dynamic interaction.
 *   **More Robust Testing**: Expand unit and integration tests.
 *   **Logging**: Implement more structured logging.
 

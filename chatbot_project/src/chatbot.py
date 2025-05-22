@@ -18,9 +18,9 @@ class Chatbot:
         """
         self.api_key = api_key
         self.base_url = base_url
-        self.model = "gpt-3.5-turbo"  # Default model
+        self.model = "gpt-3.5-turbo"  # Default model if no specific model is requested per message
 
-    def send_message(self, message_content: str, conversation_history: list = None) -> str | None:
+    def send_message(self, message_content: str, conversation_history: list = None, model_name: str = None) -> str | None:
         """
         Sends a message to the chat API and returns the assistant's reply.
 
@@ -29,6 +29,9 @@ class Chatbot:
             conversation_history (list, optional): A list of previous message objects.
                                                    Each object should be a dictionary with "role" and "content".
                                                    Defaults to None.
+            model_name (str, optional): The name of the model to use for this specific request.
+                                        If None, uses the chatbot's default model (`self.model`).
+                                        Defaults to None.
 
         Returns:
             str | None: The assistant's reply content, or None if an error occurred.
@@ -40,8 +43,14 @@ class Chatbot:
 
         messages.append({"role": "user", "content": message_content})
 
+        model_to_use = model_name if model_name else self.model
+        if not model_to_use: # Fallback if model_name is empty string and self.model was somehow cleared
+            print("Error: No model specified for the API request.")
+            return None
+
+
         payload = {
-            "model": self.model,
+            "model": model_to_use,
             "messages": messages,
         }
 
@@ -53,7 +62,8 @@ class Chatbot:
         api_url = f"{self.base_url}/chat/completions"
 
         try:
-            response = requests.post(api_url, headers=headers, json=payload, timeout=30) # Added timeout
+            print(f"INFO: Sending request to {api_url} with model: {model_to_use}") # For debugging
+            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
 
             if response.status_code == 200:
                 try:
@@ -87,27 +97,25 @@ class Chatbot:
 
 if __name__ == '__main__':
     # This is a placeholder for testing and will be removed or updated later.
-    # For now, it requires you to manually set API_KEY and BASE_URL.
-    # In a real scenario, these would come from a config file.
     print("Testing Chatbot class...")
-    API_KEY = "YOUR_API_KEY_HERE"  # Replace with a real or dummy key for local testing
-    BASE_URL = "https://api.openai.com/v1"  # Replace with the correct base URL
+    API_KEY = os.getenv("TEST_OPENAI_API_KEY", "YOUR_API_KEY_HERE")
+    BASE_URL = os.getenv("TEST_OPENAI_BASE_URL", "https://api.openai.com/v1")
 
     if API_KEY == "YOUR_API_KEY_HERE":
-        print("Please replace 'YOUR_API_KEY_HERE' with an actual API key to test.")
+        print("Please replace 'YOUR_API_KEY_HERE' or set TEST_OPENAI_API_KEY env var to test.")
     else:
         bot = Chatbot(api_key=API_KEY, base_url=BASE_URL)
 
-        # Test 1: Simple message
-        print("\n--- Test 1: Simple message ---")
+        # Test 1: Simple message (using default model)
+        print("\n--- Test 1: Simple message (default model) ---")
         reply = bot.send_message("Hello, how are you?")
         if reply:
             print(f"Chatbot: {reply}")
         else:
             print("Chatbot: No reply received.")
 
-        # Test 2: Message with history
-        print("\n--- Test 2: Message with history ---")
+        # Test 2: Message with history (using default model)
+        print("\n--- Test 2: Message with history (default model) ---")
         history = [
             {"role": "user", "content": "What is the capital of France?"},
             {"role": "assistant", "content": "The capital of France is Paris."}
@@ -118,27 +126,21 @@ if __name__ == '__main__':
         else:
             print("Chatbot: No reply received for message with history.")
 
-        # Test 3: Non-existent endpoint (simulating a URL error, though base_url is fixed here)
-        # To truly test this, you'd change base_url to something invalid.
-        # For now, this will likely just fail if the API key is invalid or quota is exceeded.
-        print("\n--- Test 3: Error handling (simulated by potentially invalid key) ---")
-        error_bot = Chatbot(api_key="INVALID_KEY_FOR_TESTING", base_url=BASE_URL)
-        error_reply = error_bot.send_message("This should fail.")
-        if not error_reply:
-            print("Chatbot: Correctly handled error (no reply).")
+        # Test 3: Simple message with a specific model (e.g., gpt-4 if available and configured)
+        # Note: This test depends on the availability of the specified model.
+        # For local testing, you might use a known available model or a dummy one if your API supports it.
+        # If the model specified in OPENAI_MODELS is available, use one from there.
+        # For now, we'll hardcode one for the test example.
+        # This will likely use "gpt-3.5-turbo" if TEST_API_KEY is not a real OpenAI key for gpt-4
+        specific_model_to_test = "gpt-3.5-turbo" # or "gpt-4" if you have access
+        print(f"\n--- Test 4: Simple message (specific model: {specific_model_to_test}) ---")
+        reply_specific_model = bot.send_message(f"Tell me a joke, using model {specific_model_to_test}.", model_name=specific_model_to_test)
+        if reply_specific_model:
+            print(f"Chatbot ({specific_model_to_test}): {reply_specific_model}")
         else:
-            print(f"Chatbot: Unexpected reply during error test: {error_reply}")
+            print(f"Chatbot ({specific_model_to_test}): No reply received.")
 
-        print("\n--- Test 4: Changing model (conceptual, as model is hardcoded for now) ---")
-        # bot.model = "gpt-4" # Example if model was configurable
-        # print(f"Chatbot model set to: {bot.model}")
-        # reply_gpt4 = bot.send_message("Explain quantum computing in simple terms.")
-        # if reply_gpt4:
-        #     print(f"Chatbot (GPT-4 model): {reply_gpt4}")
-        # else:
-        #     print("Chatbot: No reply received with gpt-4 model.")
-        print("Note: Model is currently hardcoded to gpt-3.5-turbo. Model switching test is conceptual.")
 
-    print("\nChatbot class implementation complete and basic test structure added.")
-    print("Ensure 'requests' library is installed (`pip install requests`).")
-    print("Actual API interaction depends on a valid API_KEY and network access.")
+        print("\nChatbot class modification for model selection per message complete.")
+        print("Ensure 'requests' library is installed (`pip install requests`).")
+        print("Actual API interaction depends on a valid API_KEY and network access.")

@@ -6,3 +6,7 @@ api_key = YOUR_API_KEY_HERE
 base_url = YOUR_BASE_URL_HERE
 # Example for OpenAI:
 # base_url = https://api.openai.com/v1
+
+# Optional: Comma-separated list of models to make available in the UI.
+# If commented out or empty, a default list may be used in the application.
+# models = gpt-3.5-turbo,gpt-4,gpt-4-turbo,another-model

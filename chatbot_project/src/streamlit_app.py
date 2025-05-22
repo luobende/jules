@@ -3,14 +3,13 @@
 import streamlit as st
 import sys
 import os
+import json # For JSON export
+from datetime import datetime # For unique filenames
 
 # 1. Path Setup for Imports
-# Ensure 'src' and 'config' can be found for module imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-# No need to add src/ and config/ explicitly if project_root is added,
-# as imports like 'from src.chatbot import Chatbot' will work.
 
 from src.chatbot import Chatbot
 from config.config import load_config
@@ -18,96 +17,183 @@ from config.config import load_config
 # 2. App Title
 st.title("💬 Configurable Chatbot")
 
-# 3. Load Configuration and Initialize Chatbot
-# Use session state to store chatbot instance and avoid re-initialization on every interaction
+# --- Helper functions for Export ---
+def _prepare_text_export(messages: list) -> str:
+    """Formats conversation history into a plain text string."""
+    export_string = ""
+    for message in messages:
+        role = message["role"].capitalize()
+        content = message["content"]
+        export_string += f"{role}: {content}\n\n"
+    return export_string.strip()
+
+def _prepare_json_export(messages: list) -> str:
+    """Formats conversation history into a JSON string."""
+    return json.dumps(messages, indent=2)
+
+# --- Configuration and Initialization ---
 if 'chatbot_initialized' not in st.session_state:
     st.session_state.chatbot_initialized = False
+    st.session_state.api_key = None
+    st.session_state.base_url = None
+    st.session_state.configured_models = []
+    st.session_state.available_models = []
+    st.session_state.selected_model = None 
 
+# Load configuration only once
 if not st.session_state.chatbot_initialized:
-    # Determine the path to config.ini relative to this file (streamlit_app.py in src/)
-    # It should be in ../config/config.ini
     config_file_path = os.path.join(project_root, 'config', 'config.ini')
     
-    # Suppress print statements from load_config during Streamlit execution
-    # by temporarily redirecting stdout. This is a bit of a hack for cleaner UI.
     original_stdout = sys.stdout
     sys.stdout = open(os.devnull, 'w')
-    api_key, base_url = load_config(config_file_path=config_file_path)
-    sys.stdout.close() # Close the devnull stream
-    sys.stdout = original_stdout # Restore stdout
+    api_key, base_url, configured_models_list = load_config(config_file_path=config_file_path)
+    sys.stdout.close()
+    sys.stdout = original_stdout
 
-    if not api_key or not base_url:
-        st.error("🔴 API Key or Base URL not configured. Please set them via environment variables or create/update `config/config.ini` based on `config/config.ini.template`.")
-        st.warning("Please ensure `config/config.ini` is in the `config` directory, or environment variables `OPENAI_API_KEY` and `OPENAI_BASE_URL` are set.")
+    st.session_state.api_key = api_key
+    st.session_state.base_url = base_url
+    st.session_state.configured_models = configured_models_list
+
+    if not st.session_state.api_key or not st.session_state.base_url:
+        st.error("🔴 API Key or Base URL not configured. Please set them via environment variables or update `config/config.ini`.")
+        st.warning("Ensure `config/config.ini` is in the `config` directory, or env vars `OPENAI_API_KEY` and `OPENAI_BASE_URL` are set.")
         st.stop()
     else:
-        st.session_state.chatbot_instance = Chatbot(api_key=api_key, base_url=base_url)
+        st.session_state.chatbot_instance = Chatbot(api_key=st.session_state.api_key, base_url=st.session_state.base_url)
         st.session_state.chatbot_initialized = True
-        st.success(f"Chatbot initialized successfully. Using model: {st.session_state.chatbot_instance.model}", icon="✅")
+        if st.session_state.configured_models:
+            st.session_state.available_models = st.session_state.configured_models
+        else:
+            st.session_state.available_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"] 
+            st.sidebar.info("No models configured. Using default list. Configure in `config/config.ini` or via `OPENAI_MODELS` env var.")
+
+        if not st.session_state.selected_model and st.session_state.available_models:
+            st.session_state.selected_model = st.session_state.available_models[0]
+        
+        st.success(f"Chatbot initialized. Default instance model: {st.session_state.chatbot_instance.model}", icon="✅")
 
 
-# 4. Initialize Chat History in Session State
+# --- Sidebar UI Elements ---
+if st.session_state.chatbot_initialized:
+    # Model Selection
+    if st.session_state.available_models:
+        if st.session_state.selected_model not in st.session_state.available_models:
+            st.session_state.selected_model = st.session_state.available_models[0]
+            
+        try:
+            current_model_index = st.session_state.available_models.index(st.session_state.selected_model)
+        except ValueError:
+            current_model_index = 0 
+
+        selected_model_from_ui = st.sidebar.selectbox(
+            "Choose a Model:",
+            options=st.session_state.available_models,
+            index=current_model_index,
+            key="model_select_key" 
+        )
+        
+        if selected_model_from_ui != st.session_state.selected_model:
+            st.session_state.selected_model = selected_model_from_ui
+            st.sidebar.success(f"Model changed to: {st.session_state.selected_model}", icon="🔄")
+
+        st.sidebar.info(f"Using model: **{st.session_state.selected_model}**")
+    else:
+        st.sidebar.warning("No models available for selection.")
+
+    st.sidebar.markdown("---") 
+
+    # Clear Chat History Button
+    if st.sidebar.button("Clear Chat History", key="clear_chat_button"):
+        st.session_state.messages = []
+        st.sidebar.success("Chat history cleared!", icon="🗑️")
+        st.experimental_rerun()
+
+    st.sidebar.markdown("---") # Separator before export buttons
+
+    # Export Conversation Buttons
+    st.sidebar.subheader("Export Conversation")
+    
+    # Disable buttons if no messages
+    export_disabled = not st.session_state.get("messages", [])
+
+    # Generate a unique part for the filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # TXT Export
+    plain_text_data = _prepare_text_export(st.session_state.get("messages", []))
+    st.sidebar.download_button(
+        label="Export as TXT",
+        data=plain_text_data,
+        file_name=f"conversation_{timestamp}.txt",
+        mime="text/plain",
+        key="export_txt_button",
+        disabled=export_disabled,
+        help="Exports the current chat conversation to a plain text file."
+    )
+
+    # JSON Export
+    json_data = _prepare_json_export(st.session_state.get("messages", []))
+    st.sidebar.download_button(
+        label="Export as JSON",
+        data=json_data,
+        file_name=f"conversation_{timestamp}.json",
+        mime="application/json",
+        key="export_json_button",
+        disabled=export_disabled,
+        help="Exports the current chat conversation to a JSON file."
+    )
+
+
+# --- Chat History Management and Display ---
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [] # Ensure messages list exists
 
-# 5. Display Chat History
-# Iterate through a copy of messages for safe modification if needed, though not strictly necessary here
-for message in st.session_state.messages:
+for message in st.session_state.messages: # Use .get for safety, though initialized above
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 6. User Input
+
+# --- User Input and Chatbot Response ---
 if prompt := st.chat_input("What's on your mind?"):
-    # Add user's message to history
+    if not st.session_state.chatbot_initialized:
+        st.error("Chatbot is not initialized. Please check configuration.")
+        st.stop()
+    if not st.session_state.selected_model and st.session_state.available_models: 
+        st.error("No model selected. Please choose a model from the sidebar.")
+        st.stop()
+    if not st.session_state.available_models: 
+        st.error("No models available or configured. Cannot send message.")
+        st.stop()
+
     st.session_state.messages.append({"role": "user", "content": prompt})
-    # Display user's message immediately
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 7. Get Chatbot Response
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        with st.spinner("Thinking... 🤔"):
-            # Prepare conversation_history for the API call.
-            # This should be all messages *before* the current user prompt was added.
-            # The Chatbot class's send_message method takes `message_content` (the new prompt)
-            # and `conversation_history` (list of previous messages).
-            
-            # Corrected history preparation:
-            # The history sent to the API should be all messages currently in session_state.messages
-            # *before* the latest user message was appended.
-            # However, `send_message` expects the current prompt as `message_content`,
-            # and the preceding messages as `conversation_history`.
-            
-            # Let's get the history *before* the current user prompt was appended.
-            # The current st.session_state.messages already includes the user's latest prompt.
-            # So, history_for_api should be all messages *except* the last one.
-            history_for_api = st.session_state.messages[:-1] # All but the last message
+        with st.spinner(f"Thinking with {st.session_state.selected_model}... 🤔"):
+            history_for_api = st.session_state.messages[:-1]
 
-            # Suppress print statements from chatbot.send_message for cleaner UI
             original_stdout_chatbot = sys.stdout
             sys.stdout = open(os.devnull, 'w')
             response = st.session_state.chatbot_instance.send_message(
-                message_content=prompt, # The current user input
-                conversation_history=history_for_api
+                message_content=prompt,
+                conversation_history=history_for_api,
+                model_name=st.session_state.selected_model 
             )
-            sys.stdout.close() # Close the devnull stream
-            sys.stdout = original_stdout_chatbot # Restore stdout
+            sys.stdout.close()
+            sys.stdout = original_stdout_chatbot
 
             if response:
                 message_placeholder.markdown(response)
-                # Add assistant's response to history
                 st.session_state.messages.append({"role": "assistant", "content": response})
             else:
-                # Error messages from chatbot.py are printed to console,
-                # here we show a UI message.
-                message_placeholder.error("😕 Sorry, I couldn't get a response. Please check the console for more details or try again.")
-                # Optionally, remove the user's last message if the bot failed, or keep it.
-                # For now, we keep it to show the attempt.
-                # To remove: st.session_state.messages.pop() (if user's message was the last one added)
+                message_placeholder.error("😕 Sorry, I couldn't get a response. Check console for details.")
 
-# For debugging: Show session state
-# if st.sidebar.checkbox("Show Session State"):
+# --- Sidebar Information ---
+st.sidebar.markdown("---")
+st.sidebar.info("Conversation history is session-based. Refreshing the page clears history. Model changes apply to new messages.")
+
+# For debugging:
+# if st.sidebar.checkbox("Show Session State Details"):
 #    st.sidebar.write(st.session_state)
-
-st.sidebar.info("This chatbot maintains conversation history for the current session. Refreshing the page will clear the history and reinitialize the chatbot if needed.")
